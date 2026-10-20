@@ -1,3 +1,4 @@
+
 name: Build Personal Video Vault APK
 
 on:
@@ -27,21 +28,44 @@ jobs:
           mkdir project
           unzip -q "$ZIP_FILE" -d project
           echo "Extracted project files:"
-          find project -maxdepth 3 -type f | head -80
+          find project -maxdepth 4 -type f | head -100
+
+      - name: Align Java and Kotlin JVM targets
+        run: |
+          BUILD_FILE=$(find project -type f -path '*/app/build.gradle.kts' | head -n 1)
+          if [ -z "$BUILD_FILE" ]; then
+            echo "App Gradle file not found"
+            exit 1
+          fi
+          cat >> "$BUILD_FILE" <<'EOF'
+
+          android {
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+          }
+
+          tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+              compilerOptions {
+                  jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+              }
+          }
+          EOF
 
       - name: Build debug APK
         run: |
-          BUILD_FILE=$(find project -name settings.gradle.kts -o -name settings.gradle | head -n 1)
+          BUILD_FILE=$(find project -type f \( -name settings.gradle.kts -o -name settings.gradle \) | head -n 1)
           if [ -z "$BUILD_FILE" ]; then
             echo "Android Gradle project not found"
             exit 1
           fi
           PROJECT_DIR=$(dirname "$BUILD_FILE")
           cd "$PROJECT_DIR"
-          gradle --version
           gradle assembleDebug
 
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: Personal-Video-Vault-APK
