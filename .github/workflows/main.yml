@@ -1,0 +1,48 @@
+name: Build Personal Video Vault APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Find and extract Android project
+        run: |
+          ZIP_FILE=$(find . -maxdepth 2 -type f -iname '*.zip' | head -n 1)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "No project ZIP found"
+            exit 1
+          fi
+          mkdir project
+          unzip -q "$ZIP_FILE" -d project
+          echo "Extracted project files:"
+          find project -maxdepth 3 -type f | head -80
+
+      - name: Build debug APK
+        run: |
+          BUILD_FILE=$(find project -name settings.gradle.kts -o -name settings.gradle | head -n 1)
+          if [ -z "$BUILD_FILE" ]; then
+            echo "Android Gradle project not found"
+            exit 1
+          fi
+          PROJECT_DIR=$(dirname "$BUILD_FILE")
+          cd "$PROJECT_DIR"
+          gradle --version
+          gradle assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Personal-Video-Vault-APK
+          path: project/**/build/outputs/apk/debug/*.apk
